@@ -19,19 +19,12 @@ public class PetProvider extends ContentProvider {
 
     /** Tag for the log messages */
     public static final String LOG_TAG = PetProvider.class.getSimpleName();
-
-    /**
-     * Initialize the provider and the database helper object.
-     */
-    PetDbHelper mDbHelper;
-
-    //SQLiteDatabase database;
     /** URI matcher code for the content URI for the pets table */
     private static final int PETS = 100;
 
+    //SQLiteDatabase database;
     /** URI matcher code for the content URI for a single pet in the pets table */
     private static final int PET_ID = 101;
-
     /**
      * UriMatcher object to match a content URI to a corresponding code.
      * The input passed into the constructor represents the code to return for the root URI.
@@ -49,6 +42,11 @@ public class PetProvider extends ContentProvider {
         sUriMatcher.addURI(PetContract.CONTENT_AUTHORITY,PetContract.PATH_PETS,PETS);
         sUriMatcher.addURI(PetContract.CONTENT_AUTHORITY,PetContract.PATH_PETS +"/#",PET_ID);
     }
+
+    /**
+     * Initialize the provider and the database helper object.
+     */
+    PetDbHelper mDbHelper;
 
     @Override
     public boolean onCreate() {
@@ -80,7 +78,7 @@ public class PetProvider extends ContentProvider {
                 // projection, selection, selection arguments, and sort order. The cursor
                 // could contain multiple rows of the pets table.
                 //  database query on pets table
-                database.query(PetEntry.TABLE_NAME,
+                cursor = database.query(PetEntry.TABLE_NAME,
                         projection,
                         selection,
                         selectionArgs,
@@ -241,7 +239,14 @@ public class PetProvider extends ContentProvider {
         SQLiteDatabase database = mDbHelper.getWritableDatabase();
 
         // Return the number of rows that were affected
-        return database.update(PetEntry.TABLE_NAME,values,selection,selectionArgs);
+        int rowsUpdated = database.update(PetEntry.TABLE_NAME, values, selection, selectionArgs);
+
+        if (rowsUpdated != 0) {
+            getContext().getContentResolver().notifyChange(uri, null);
+
+        }
+
+        return rowsUpdated;
 
     }
     /**
@@ -252,16 +257,22 @@ public class PetProvider extends ContentProvider {
         // Get writeable database
         SQLiteDatabase database = mDbHelper.getWritableDatabase();
 
+        int rowsDeleted;
+
         final int match = sUriMatcher.match(uri);
         switch (match) {
             case PETS:
                 // Delete all rows that match the selection and selection args
-                return database.delete(PetEntry.TABLE_NAME, selection, selectionArgs);
+                rowsDeleted = database.delete(PetEntry.TABLE_NAME, selection, selectionArgs);
+                getContext().getContentResolver().notifyChange(uri, null);
+                return rowsDeleted;
             case PET_ID:
                 // Delete a single row given by the ID in the URI
                 selection = PetEntry._ID + "=?";
                 selectionArgs = new String[]{String.valueOf(ContentUris.parseId(uri))};
-                return database.delete(PetEntry.TABLE_NAME, selection, selectionArgs);
+                rowsDeleted = database.delete(PetEntry.TABLE_NAME, selection, selectionArgs);
+                getContext().getContentResolver().notifyChange(uri, null);
+                return rowsDeleted;
             default:
                 throw new IllegalArgumentException("Deletion is not supported for " + uri);
         }
